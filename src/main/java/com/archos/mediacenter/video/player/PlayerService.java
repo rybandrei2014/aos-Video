@@ -1662,6 +1662,8 @@ public class PlayerService extends Service implements Player.Listener, IndexHelp
         mDestroyed = true;
         if (log.isDebugEnabled()) log.debug("onDestroy: unregister headsetPluggedReceiver");
         unregisterReceiver(headsetPluggedReceiver);
+        if (mVideoObserver != null)
+            getContentResolver().unregisterContentObserver(mVideoObserver);
         sPlayerService=null;
         if(mTorrent!=null)
             try {
@@ -2516,7 +2518,7 @@ public class PlayerService extends Service implements Player.Listener, IndexHelp
             mPlayerFrontend.onSubtitleMetadataUpdated(vMetadata, newSubtitleTrack);
         }
 
-        // Cache the AVOS metadata result for future playback within 10 second TTL
+        // Cache the AVOS metadata result for reuse (bounded LRU in SubtitleManager)
         SubtitleManager.cacheProcessedMetadata(mUri, vMetadata);
         if (log.isDebugEnabled()) log.debug("onSubtitleMetadataUpdated: cached AVOS metadata for {}", mUri);
     }
