@@ -55,10 +55,12 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -154,7 +156,17 @@ public class SubtitleManager {
     private Listener mListener;
     // Thread-safe cache for subtitle enumeration results keyed by video URI string
     // Using String key (Uri.toString()) instead of Uri object to handle Uri object inequality
-    private static final ConcurrentHashMap<String, SubtitleCacheEntry> mSubtitleCache = new ConcurrentHashMap<>();
+    // The map is static (survives while the TV keeps the process alive) and PlayerService
+    // feeds it on every playback, so it is capped to a small access-ordered LRU; each entry
+    // holds a VideoMetadata copy and an uncapped map would pin one per video forever.
+    private static final int CACHE_MAX_ENTRIES = 50;
+    private static final Map<String, SubtitleCacheEntry> mSubtitleCache =
+            Collections.synchronizedMap(new LinkedHashMap<String, SubtitleCacheEntry>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, SubtitleCacheEntry> eldest) {
+                    return size() > CACHE_MAX_ENTRIES;
+                }
+            });
 
     public SubtitleManager(Context context, Listener listener){
         mContext = context;
